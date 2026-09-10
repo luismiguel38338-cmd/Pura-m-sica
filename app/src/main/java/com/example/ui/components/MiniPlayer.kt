@@ -100,7 +100,7 @@ fun MiniPlayer(
                     ) {
                         // Small Cover
                         SongCoverArt(
-                            drawableRes = currentSong.drawableRes,
+                            albumArtUri = currentSong.albumArtUri,
                             gradientColors = currentSong.gradientColors,
                             size = 46.dp,
                             cornerSize = 10.dp,

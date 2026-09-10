@@ -43,6 +43,8 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.FloatingActionButton
@@ -98,6 +100,8 @@ fun PlayerFullScreen(
     playbackSpeed: Float = 1.0f,
     onCycleSpeed: () -> Unit = {},
     sleepTimerMinutes: Int? = null,
+    volume: Float = 0.85f,
+    onVolumeChange: (Float) -> Unit = {},
     onOpenEnhancer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -306,7 +310,7 @@ fun PlayerFullScreen(
                                             color = MaterialTheme.colorScheme.surfaceVariant
                                         ) {
                                             SongCoverArt(
-                                                drawableRes = song.drawableRes,
+                                                albumArtUri = song.albumArtUri,
                                                 gradientColors = song.gradientColors,
                                                 size = coverDimension,
                                                 cornerSize = 28.dp,
@@ -510,6 +514,34 @@ fun PlayerFullScreen(
                             }
                         }
 
+                        // Volume Control Slider
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.VolumeDown,
+                                contentDescription = "Bajar volumen",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Slider(
+                                value = volume,
+                                onValueChange = onVolumeChange,
+                                valueRange = 0f..1f,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.VolumeUp,
+                                contentDescription = "Subir volumen",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
                         // Bottom Controls: Quality Badge, Speed, and Audio FX
                         Row(
                             modifier = Modifier
@@ -524,7 +556,7 @@ fun PlayerFullScreen(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
-                                    text = "320 kbps FLAC",
+                                    text = if (song.sizeBytes > 0) "${"%.1f".format(song.sizeBytes / 1048576f)} MB • MP3" else "Audio MP3",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)

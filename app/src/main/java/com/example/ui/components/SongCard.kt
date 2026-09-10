@@ -69,7 +69,7 @@ fun SongCard(
             // Square Cover Art
             Box(contentAlignment = Alignment.Center) {
                 SongCoverArt(
-                    drawableRes = song.drawableRes,
+                    albumArtUri = song.albumArtUri,
                     gradientColors = song.gradientColors,
                     size = 54.dp,
                     cornerSize = 12.dp,

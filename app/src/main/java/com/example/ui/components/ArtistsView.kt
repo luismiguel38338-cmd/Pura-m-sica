@@ -94,7 +94,7 @@ fun ArtistsView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     SongCoverArt(
-                        drawableRes = selectedArtist.drawableRes,
+                        albumArtUri = selectedArtist.albumArtUri,
                         gradientColors = selectedArtist.gradientColors,
                         size = 72.dp,
                         isCircular = true,
@@ -176,7 +176,7 @@ fun ArtistsView(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         SongCoverArt(
-                            drawableRes = artist.drawableRes,
+                            albumArtUri = artist.albumArtUri,
                             gradientColors = artist.gradientColors,
                             size = 56.dp,
                             isCircular = true,

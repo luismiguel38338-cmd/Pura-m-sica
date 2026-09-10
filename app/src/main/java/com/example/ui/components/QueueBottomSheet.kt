@@ -132,7 +132,7 @@ fun QueueBottomSheet(
                             )
 
                             SongCoverArt(
-                                drawableRes = song.drawableRes,
+                                albumArtUri = song.albumArtUri,
                                 gradientColors = song.gradientColors,
                                 size = 42.dp,
                                 cornerSize = 8.dp,

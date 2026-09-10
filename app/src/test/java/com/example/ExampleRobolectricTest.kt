@@ -28,18 +28,9 @@ class ExampleRobolectricTest {
   @Test
   fun `verify initial songs and playback state in viewModel`() {
     val viewModel = MusicPlayerViewModel()
-    val songs = viewModel.songs.value
-    assertTrue("Songs repository should not be empty", songs.isNotEmpty())
-
-    val firstSong = songs.first()
-    assertNotNull(viewModel.currentSong.value)
-
-    viewModel.playSong(firstSong)
-    assertTrue("Should be playing after playSong", viewModel.isPlaying.value)
-    assertEquals(firstSong.id, viewModel.currentSong.value?.id)
-
-    viewModel.togglePlayPause()
-    assertFalse("Should be paused after togglePlayPause", viewModel.isPlaying.value)
+    assertTrue(viewModel.songs.value.isEmpty())
+    assertFalse(viewModel.isPlaying.value)
+    assertEquals(0.85f, viewModel.volume.value, 0.01f)
 
     viewModel.setPlaybackSpeed(1.5f)
     assertEquals(1.5f, viewModel.playbackSpeed.value, 0.01f)
@@ -49,6 +40,9 @@ class ExampleRobolectricTest {
 
     viewModel.cycleRepeatMode()
     assertEquals(RepeatMode.ONE, viewModel.repeatMode.value)
+
+    viewModel.setVolume(0.5f)
+    assertEquals(0.5f, viewModel.volume.value, 0.01f)
   }
 }
 

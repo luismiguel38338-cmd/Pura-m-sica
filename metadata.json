@@ -1,6 +1,6 @@
 {
   "name": "Música",
-  "description": "Reproductor de música moderno, elegante y minimalista con mini reproductor interactivo, pantalla de reproducción completa, gestión de favoritos y soporte para modo claro y oscuro.",
+  "description": "Reproductor de música MP3 para archivos locales del teléfono con Media3/ExoPlayer, biblioteca de canciones, artistas y álbumes, carátulas reales, reproducción en segundo plano, ecualizador y control de volumen.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

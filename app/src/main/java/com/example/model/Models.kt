@@ -1,7 +1,5 @@
 package com.example.model
 
-import androidx.annotation.DrawableRes
-
 enum class SectionTab(val label: String) {
     ALL_SONGS("Todas las canciones"),
     ARTISTS("Artistas"),
@@ -40,11 +38,14 @@ data class Song(
     val artist: String,
     val album: String,
     val durationSeconds: Int,
+    val contentUri: String,
+    val albumArtUri: String? = null,
+    val albumId: Long = 0L,
+    val filePath: String? = null,
+    val sizeBytes: Long = 0L,
     val isFavorite: Boolean = false,
-    @param:DrawableRes val drawableRes: Int? = null,
     val gradientColors: List<Long> = listOf(0xFF8B5CF6, 0xFFEC4899),
-    val lyrics: List<LyricLine> = emptyList(),
-    val baseFrequencyHz: Float = 220f
+    val lyrics: List<LyricLine> = emptyList()
 ) {
     val durationFormatted: String
         get() {
@@ -58,7 +59,7 @@ data class Artist(
     val name: String,
     val songCount: Int,
     val albumCount: Int,
-    @param:DrawableRes val drawableRes: Int? = null,
+    val albumArtUri: String? = null,
     val gradientColors: List<Long> = listOf(0xFF6366F1, 0xFF06B6D4)
 )
 
@@ -68,7 +69,7 @@ data class Album(
     val artist: String,
     val year: Int,
     val songCount: Int,
-    @param:DrawableRes val drawableRes: Int? = null,
+    val albumArtUri: String? = null,
     val gradientColors: List<Long> = listOf(0xFFF43F5E, 0xFFF59E0B)
 )
 

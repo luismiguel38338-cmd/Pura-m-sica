@@ -230,7 +230,7 @@ fun SearchBarView(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             SongCoverArt(
-                                drawableRes = artist.drawableRes,
+                                albumArtUri = artist.albumArtUri,
                                 gradientColors = artist.gradientColors,
                                 size = 44.dp,
                                 isCircular = true,

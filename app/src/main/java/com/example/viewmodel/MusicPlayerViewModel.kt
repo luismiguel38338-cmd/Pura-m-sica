@@ -1,8 +1,9 @@
 package com.example.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.audio.AudioSynthesisEngine
+import com.example.data.MediaAudioScanner
 import com.example.data.MusicRepository
 import com.example.model.Album
 import com.example.model.Artist
@@ -11,6 +12,7 @@ import com.example.model.RepeatMode
 import com.example.model.SectionTab
 import com.example.model.Song
 import com.example.model.ThemeMode
+import com.example.player.RealMusicPlayer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,19 +25,25 @@ import kotlin.random.Random
 
 class MusicPlayerViewModel : ViewModel() {
 
-    private val audioEngine = AudioSynthesisEngine(viewModelScope)
-    val visualizerBands: StateFlow<List<Float>> = audioEngine.visualizerBands
+    private var realMusicPlayer: RealMusicPlayer? = null
+    private var appContext: Context? = null
 
-    private val _songs = MutableStateFlow<List<Song>>(MusicRepository.initialSongs)
+    private val _isPermissionGranted = MutableStateFlow(true)
+    val isPermissionGranted: StateFlow<Boolean> = _isPermissionGranted.asStateFlow()
+
+    private val _isScanning = MutableStateFlow(false)
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
 
-    private val _artists = MutableStateFlow<List<Artist>>(MusicRepository.artists)
+    private val _artists = MutableStateFlow<List<Artist>>(emptyList())
     val artists: StateFlow<List<Artist>> = _artists.asStateFlow()
 
-    private val _albums = MutableStateFlow<List<Album>>(MusicRepository.albums)
+    private val _albums = MutableStateFlow<List<Album>>(emptyList())
     val albums: StateFlow<List<Album>> = _albums.asStateFlow()
 
-    private val _currentSong = MutableStateFlow<Song?>(MusicRepository.initialSongs.firstOrNull())
+    private val _currentSong = MutableStateFlow<Song?>(null)
     val currentSong: StateFlow<Song?> = _currentSong.asStateFlow()
 
     private val _isPlaying = MutableStateFlow(false)
@@ -43,6 +51,9 @@ class MusicPlayerViewModel : ViewModel() {
 
     private val _playbackPositionMs = MutableStateFlow(0L)
     val playbackPositionMs: StateFlow<Long> = _playbackPositionMs.asStateFlow()
+
+    private val _visualizerBands = MutableStateFlow(List(16) { 0.08f })
+    val visualizerBands: StateFlow<List<Float>> = _visualizerBands.asStateFlow()
 
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
@@ -62,7 +73,7 @@ class MusicPlayerViewModel : ViewModel() {
     private val _repeatMode = MutableStateFlow(RepeatMode.ALL)
     val repeatMode: StateFlow<RepeatMode> = _repeatMode.asStateFlow()
 
-    private val _queue = MutableStateFlow<List<Song>>(MusicRepository.initialSongs)
+    private val _queue = MutableStateFlow<List<Song>>(emptyList())
     val queue: StateFlow<List<Song>> = _queue.asStateFlow()
 
     private val _selectedTab = MutableStateFlow(SectionTab.ALL_SONGS)
@@ -92,60 +103,89 @@ class MusicPlayerViewModel : ViewModel() {
     private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
-    private var playbackJob: Job? = null
     private var sleepTimerJob: Job? = null
 
-    init {
-        startPlaybackProgressTicker()
-    }
+    fun initialize(context: Context) {
+        if (realMusicPlayer != null) return
+        appContext = context.applicationContext
+        val player = RealMusicPlayer(context.applicationContext)
+        realMusicPlayer = player
 
-    private fun startPlaybackProgressTicker() {
-        playbackJob?.cancel()
-        playbackJob = viewModelScope.launch {
-            while (isActive) {
-                delay(200L)
-                if (_isPlaying.value) {
-                    val song = _currentSong.value ?: continue
-                    val maxDurationMs = song.durationSeconds * 1000L
-                    val stepMs = (200L * _playbackSpeed.value).toLong()
-                    val nextPos = _playbackPositionMs.value + stepMs
-
-                    if (nextPos >= maxDurationMs) {
-                        when (_repeatMode.value) {
-                            RepeatMode.ONE -> {
-                                _playbackPositionMs.value = 0L
-                                audioEngine.playSong(song)
-                            }
-                            RepeatMode.ALL -> {
-                                playNextTrack(autoTriggered = true)
-                            }
-                            RepeatMode.OFF -> {
-                                val currentIdx = _queue.value.indexOfFirst { it.id == song.id }
-                                if (currentIdx < _queue.value.size - 1) {
-                                    playNextTrack(autoTriggered = true)
-                                } else {
-                                    _isPlaying.value = false
-                                    _playbackPositionMs.value = maxDurationMs
-                                    audioEngine.pause()
-                                }
-                            }
-                        }
-                    } else {
-                        _playbackPositionMs.value = nextPos
-                    }
+        player.setCallbacks(
+            onTrackEnded = {
+                playNextTrack(autoTriggered = true)
+            },
+            onMediaChanged = { mediaId ->
+                val song = _songs.value.firstOrNull { it.id == mediaId }
+                if (song != null) {
+                    _currentSong.value = song
                 }
             }
+        )
+
+        viewModelScope.launch {
+            player.isPlaying.collect { playing ->
+                _isPlaying.value = playing
+            }
+        }
+
+        viewModelScope.launch {
+            player.currentPositionMs.collect { pos ->
+                _playbackPositionMs.value = pos
+            }
+        }
+
+        viewModelScope.launch {
+            player.visualizerBands.collect { bands ->
+                _visualizerBands.value = bands
+            }
+        }
+
+        scanDeviceMusic(context)
+    }
+
+    fun setPermissionGranted(granted: Boolean, context: Context? = null) {
+        _isPermissionGranted.value = granted
+        if (granted && context != null) {
+            scanDeviceMusic(context)
+        }
+    }
+
+    fun scanDeviceMusic(context: Context) {
+        viewModelScope.launch {
+            _isScanning.value = true
+            val scannedSongs = MediaAudioScanner.scanDeviceAudio(context)
+            val favIds = MusicRepository.getFavoriteIds(context)
+
+            val updatedSongs = scannedSongs.map { song ->
+                if (favIds.contains(song.id)) song.copy(isFavorite = true) else song
+            }
+
+            _songs.value = updatedSongs
+            _artists.value = MediaAudioScanner.groupArtists(updatedSongs)
+            _albums.value = MediaAudioScanner.groupAlbums(updatedSongs)
+
+            if (_currentSong.value == null && updatedSongs.isNotEmpty()) {
+                _currentSong.value = updatedSongs.first()
+                _queue.value = updatedSongs
+            } else if (_queue.value.isEmpty()) {
+                _queue.value = updatedSongs
+            }
+
+            _isScanning.value = false
         }
     }
 
     fun playSong(song: Song, newQueue: List<Song>? = null, expandPlayer: Boolean = true) {
-        if (newQueue != null) {
-            _queue.value = newQueue
-        }
+        val targetQueue = newQueue ?: if (_queue.value.isNotEmpty()) _queue.value else _songs.value
+        _queue.value = targetQueue
         _currentSong.value = song
         _playbackPositionMs.value = 0L
-        _isPlaying.value = true
-        audioEngine.playSong(song)
+
+        realMusicPlayer?.playSong(song, targetQueue) ?: run {
+            _isPlaying.value = true
+        }
+
         if (expandPlayer) {
             _isPlayerExpanded.value = true
         }
@@ -154,61 +194,54 @@ class MusicPlayerViewModel : ViewModel() {
     fun togglePlayPause() {
         if (_currentSong.value == null && _songs.value.isNotEmpty()) {
             val first = _songs.value.first()
-            _currentSong.value = first
-            _playbackPositionMs.value = 0L
-            _isPlaying.value = true
-            audioEngine.playSong(first)
+            playSong(first, _songs.value, expandPlayer = false)
         } else {
-            val newPlaying = !_isPlaying.value
-            _isPlaying.value = newPlaying
-            if (newPlaying) {
-                _currentSong.value?.let { audioEngine.resume() }
-            } else {
-                audioEngine.pause()
+            realMusicPlayer?.togglePlayPause() ?: run {
+                _isPlaying.update { !it }
             }
         }
     }
 
     fun playNextTrack(autoTriggered: Boolean = false) {
         val current = _currentSong.value ?: return
-        val currentQueue = _queue.value
+        val currentQueue = _queue.value.ifEmpty { _songs.value }
         if (currentQueue.isEmpty()) return
 
         if (_isShuffleEnabled.value) {
             val available = currentQueue.filter { it.id != current.id }
             val next = if (available.isNotEmpty()) available[Random.nextInt(available.size)] else current
-            playSong(next, expandPlayer = !autoTriggered)
+            playSong(next, currentQueue, expandPlayer = !autoTriggered)
             return
         }
 
         val currentIndex = currentQueue.indexOfFirst { it.id == current.id }
         val nextIndex = if (currentIndex != -1) (currentIndex + 1) % currentQueue.size else 0
-        playSong(currentQueue[nextIndex], expandPlayer = !autoTriggered)
+        playSong(currentQueue[nextIndex], currentQueue, expandPlayer = !autoTriggered)
     }
 
     fun playPreviousTrack() {
         if (_playbackPositionMs.value > 3000L) {
-            _playbackPositionMs.value = 0L
+            seekTo(0L)
             return
         }
 
         val current = _currentSong.value ?: return
-        val currentQueue = _queue.value
+        val currentQueue = _queue.value.ifEmpty { _songs.value }
         if (currentQueue.isEmpty()) return
 
         val currentIndex = currentQueue.indexOfFirst { it.id == current.id }
         val prevIndex = if (currentIndex > 0) currentIndex - 1 else currentQueue.size - 1
-        playSong(currentQueue[prevIndex], expandPlayer = false)
+        playSong(currentQueue[prevIndex], currentQueue, expandPlayer = false)
     }
 
     fun seekTo(positionMs: Long) {
-        val song = _currentSong.value ?: return
-        val clamped = positionMs.coerceIn(0L, song.durationSeconds * 1000L)
-        _playbackPositionMs.value = clamped
+        _playbackPositionMs.value = positionMs
+        realMusicPlayer?.seekTo(positionMs)
     }
 
     fun setPlaybackSpeed(speed: Float) {
         _playbackSpeed.value = speed
+        realMusicPlayer?.setPlaybackSpeed(speed)
     }
 
     fun cyclePlaybackSpeed() {
@@ -216,17 +249,17 @@ class MusicPlayerViewModel : ViewModel() {
         val current = _playbackSpeed.value
         val currentIndex = speeds.indexOfFirst { kotlin.math.abs(it - current) < 0.05f }
         val nextIndex = if (currentIndex != -1) (currentIndex + 1) % speeds.size else 1
-        _playbackSpeed.value = speeds[nextIndex]
+        val newSpeed = speeds[nextIndex]
+        setPlaybackSpeed(newSpeed)
     }
 
     fun setEqualizerPreset(preset: EqualizerPreset) {
         _equalizerPreset.value = preset
-        audioEngine.setEqualizer(preset)
     }
 
     fun setVolume(vol: Float) {
         _volume.value = vol.coerceIn(0f, 1f)
-        audioEngine.setVolume(_volume.value)
+        realMusicPlayer?.setVolume(_volume.value)
     }
 
     fun setSleepTimer(minutes: Int?) {
@@ -240,41 +273,51 @@ class MusicPlayerViewModel : ViewModel() {
                     remaining--
                     _sleepTimerMinutes.value = remaining
                 }
+                realMusicPlayer?.pause()
                 _isPlaying.value = false
-                audioEngine.pause()
                 _sleepTimerMinutes.value = null
             }
         }
     }
 
     fun toggleFavorite(songId: String) {
+        var isFav = false
         _songs.update { list ->
             list.map { song ->
-                if (song.id == songId) song.copy(isFavorite = !song.isFavorite) else song
+                if (song.id == songId) {
+                    isFav = !song.isFavorite
+                    song.copy(isFavorite = isFav)
+                } else song
             }
         }
         _queue.update { list ->
             list.map { song ->
-                if (song.id == songId) song.copy(isFavorite = !song.isFavorite) else song
+                if (song.id == songId) song.copy(isFavorite = isFav) else song
             }
         }
         _currentSong.update { current ->
-            if (current?.id == songId) current.copy(isFavorite = !current.isFavorite) else current
+            if (current?.id == songId) current.copy(isFavorite = isFav) else current
+        }
+
+        appContext?.let { ctx ->
+            val favIds = _songs.value.filter { it.isFavorite }.map { it.id }.toSet()
+            MusicRepository.saveFavoriteIds(ctx, favIds)
         }
     }
 
     fun toggleShuffle() {
         _isShuffleEnabled.update { !it }
+        realMusicPlayer?.setShuffle(_isShuffleEnabled.value)
     }
 
     fun cycleRepeatMode() {
-        _repeatMode.update { current ->
-            when (current) {
-                RepeatMode.OFF -> RepeatMode.ALL
-                RepeatMode.ALL -> RepeatMode.ONE
-                RepeatMode.ONE -> RepeatMode.OFF
-            }
+        val next = when (_repeatMode.value) {
+            RepeatMode.OFF -> RepeatMode.ALL
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.OFF
         }
+        _repeatMode.value = next
+        realMusicPlayer?.setRepeatMode(next)
     }
 
     fun selectTab(tab: SectionTab) {
@@ -320,9 +363,7 @@ class MusicPlayerViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        playbackJob?.cancel()
         sleepTimerJob?.cancel()
-        audioEngine.release()
+        realMusicPlayer?.release()
     }
 }
-

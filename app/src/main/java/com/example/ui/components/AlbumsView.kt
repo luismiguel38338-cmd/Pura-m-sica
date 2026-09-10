@@ -98,7 +98,7 @@ fun AlbumsView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     SongCoverArt(
-                        drawableRes = selectedAlbum.drawableRes,
+                        albumArtUri = selectedAlbum.albumArtUri,
                         gradientColors = selectedAlbum.gradientColors,
                         size = 80.dp,
                         cornerSize = 16.dp,
@@ -114,7 +114,7 @@ fun AlbumsView(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${selectedAlbum.artist} • ${selectedAlbum.year}",
+                            text = if (selectedAlbum.year > 0) "${selectedAlbum.artist} • ${selectedAlbum.year}" else selectedAlbum.artist,
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -177,7 +177,7 @@ fun AlbumsView(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         SongCoverArt(
-                            drawableRes = album.drawableRes,
+                            albumArtUri = album.albumArtUri,
                             gradientColors = album.gradientColors,
                             size = 140.dp,
                             cornerSize = 14.dp,

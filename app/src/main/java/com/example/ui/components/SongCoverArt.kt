@@ -21,12 +21,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil.compose.SubcomposeAsyncImage
 
 @Composable
 fun SongCoverArt(
-    drawableRes: Int?,
-    gradientColors: List<Long>,
     modifier: Modifier = Modifier,
+    albumArtUri: String? = null,
+    drawableRes: Int? = null,
+    gradientColors: List<Long> = listOf(0xFF8B5CF6, 0xFFEC4899),
     size: Dp = 56.dp,
     cornerSize: Dp = 12.dp,
     isCircular: Boolean = false,
@@ -34,13 +36,32 @@ fun SongCoverArt(
 ) {
     val shape = if (isCircular) CircleShape else RoundedCornerShape(cornerSize)
 
+    val colors = if (gradientColors.size >= 2) {
+        listOf(Color(gradientColors[0]), Color(gradientColors[1]))
+    } else {
+        listOf(Color(0xFF8B5CF6), Color(0xFF06B6D4))
+    }
+
     Box(
         modifier = modifier
             .size(size)
             .clip(shape),
         contentAlignment = Alignment.Center
     ) {
-        if (drawableRes != null) {
+        if (!albumArtUri.isNullOrBlank()) {
+            SubcomposeAsyncImage(
+                model = albumArtUri,
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                error = {
+                    GradientFallback(colors = colors, size = size)
+                },
+                loading = {
+                    GradientFallback(colors = colors, size = size)
+                }
+            )
+        } else if (drawableRes != null) {
             Image(
                 painter = painterResource(id = drawableRes),
                 contentDescription = contentDescription,
@@ -48,27 +69,27 @@ fun SongCoverArt(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            val colors = if (gradientColors.size >= 2) {
-                listOf(Color(gradientColors[0]), Color(gradientColors[1]))
-            } else {
-                listOf(Color(0xFF8B5CF6), Color(0xFF06B6D4))
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(colors = colors)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (size > 100.dp) Icons.Default.GraphicEq else Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.9f),
-                    modifier = Modifier.size(size * 0.45f)
-                )
-            }
+            GradientFallback(colors = colors, size = size)
         }
+    }
+}
+
+@Composable
+private fun GradientFallback(
+    colors: List<Color>,
+    size: Dp
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.linearGradient(colors = colors)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = if (size > 100.dp) Icons.Default.GraphicEq else Icons.Default.MusicNote,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.9f),
+            modifier = Modifier.size(size * 0.45f)
+        )
     }
 }
