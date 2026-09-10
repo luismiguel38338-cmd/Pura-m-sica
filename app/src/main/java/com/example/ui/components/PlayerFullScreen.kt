@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,16 +30,20 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -89,11 +94,18 @@ fun PlayerFullScreen(
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onOpenQueue: () -> Unit,
+    visualizerBands: List<Float> = emptyList(),
+    playbackSpeed: Float = 1.0f,
+    onCycleSpeed: () -> Unit = {},
+    sleepTimerMinutes: Int? = null,
+    onOpenEnhancer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     BackHandler(enabled = isVisible) {
         onCollapse()
     }
+
+    var showLyrics by remember { mutableStateOf(false) }
 
     AnimatedVisibility(
         visible = isVisible && song != null,
@@ -180,7 +192,7 @@ fun PlayerFullScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 12.dp),
+                                .padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -198,21 +210,44 @@ fun PlayerFullScreen(
                                 )
                             }
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "REPRODUCIENDO",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.5.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = song.album,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                            // Mode Selector: Portada vs Letras
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
+                                    .padding(3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable { showLyrics = false },
+                                    color = if (!showLyrics) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Portada",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (!showLyrics) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                                Surface(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .clickable { showLyrics = true },
+                                    color = if (showLyrics) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Letras",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (showLyrics) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
                             }
 
                             IconButton(
@@ -222,7 +257,7 @@ fun PlayerFullScreen(
                                     .testTag("open_queue_btn")
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.QueueMusic,
+                                    imageVector = Icons.AutoMirrored.Filled.QueueMusic,
                                     contentDescription = "Cola de reproducción",
                                     tint = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.size(26.dp)
@@ -230,28 +265,66 @@ fun PlayerFullScreen(
                             }
                         }
 
-                        // Centered Large Album Artwork
-                        val coverDimension = min(maxW * 0.76f, min(maxH * 0.40f, 320.dp))
-                        Box(
-                            modifier = Modifier
-                                .padding(vertical = 16.dp)
-                                .scale(if (isPlaying) coverScale else 1.0f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
+                        // Center content: Artwork or Lyrics
+                        if (showLyrics) {
+                            Box(
                                 modifier = Modifier
-                                    .size(coverDimension)
-                                    .shadow(elevation = 20.dp, shape = RoundedCornerShape(28.dp)),
-                                shape = RoundedCornerShape(28.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
                             ) {
-                                SongCoverArt(
-                                    drawableRes = song.drawableRes,
-                                    gradientColors = song.gradientColors,
-                                    size = coverDimension,
-                                    cornerSize = 28.dp,
-                                    contentDescription = "Portada de ${song.title}"
+                                LyricsView(
+                                    lyrics = song.lyrics,
+                                    playbackPositionMs = playbackPositionMs,
+                                    onSeekToSecond = { sec -> onSeek(sec * 1000L) },
+                                    modifier = Modifier.fillMaxSize()
                                 )
+                            }
+                        } else {
+                            val coverDimension = min(maxW * 0.74f, min(maxH * 0.38f, 300.dp))
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(vertical = 12.dp)
+                                            .scale(if (isPlaying) coverScale else 1.0f),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Surface(
+                                            modifier = Modifier
+                                                .size(coverDimension)
+                                                .shadow(elevation = 20.dp, shape = RoundedCornerShape(28.dp)),
+                                            shape = RoundedCornerShape(28.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant
+                                        ) {
+                                            SongCoverArt(
+                                                drawableRes = song.drawableRes,
+                                                gradientColors = song.gradientColors,
+                                                size = coverDimension,
+                                                cornerSize = 28.dp,
+                                                contentDescription = "Portada de ${song.title}"
+                                            )
+                                        }
+                                    }
+
+                                    if (visualizerBands.isNotEmpty()) {
+                                        EqualizerVisualizerView(
+                                            bands = visualizerBands,
+                                            isPlaying = isPlaying,
+                                            barWidth = 5.dp,
+                                            maxHeight = 22.dp,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -342,7 +415,7 @@ fun PlayerFullScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceEvenly,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -437,21 +510,80 @@ fun PlayerFullScreen(
                             }
                         }
 
-                        // Bottom Quality Badge
-                        Surface(
+                        // Bottom Controls: Quality Badge, Speed, and Audio FX
+                        Row(
                             modifier = Modifier
-                                .padding(bottom = 16.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = RoundedCornerShape(12.dp)
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Alta fidelidad • 320 kbps FLAC",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                                textAlign = TextAlign.Center
-                            )
+                            Surface(
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp)),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "320 kbps FLAC",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                )
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(onClick = onCycleSpeed),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Speed,
+                                        contentDescription = "Velocidad",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "${playbackSpeed}x",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable(onClick = onOpenEnhancer),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.GraphicEq,
+                                        contentDescription = "Efectos y Ecualizador",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = if (sleepTimerMinutes != null) "💤 ${sleepTimerMinutes}m" else "Audio FX",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
                         }
                     }
                 }

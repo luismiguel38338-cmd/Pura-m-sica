@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Search
@@ -37,6 +38,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.model.SectionTab
 import com.example.ui.components.AlbumsView
 import com.example.ui.components.ArtistsView
+import com.example.ui.components.AudioEnhancerBottomSheet
 import com.example.ui.components.MiniPlayer
 import com.example.ui.components.PlayerFullScreen
 import com.example.ui.components.QueueBottomSheet
@@ -78,6 +83,14 @@ fun MainScreen(
     val isQueueSheetVisible by viewModel.isQueueSheetVisible.collectAsStateWithLifecycle()
     val isSettingsDialogVisible by viewModel.isSettingsDialogVisible.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+
+    val visualizerBands by viewModel.visualizerBands.collectAsStateWithLifecycle()
+    val playbackSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
+    val equalizerPreset by viewModel.equalizerPreset.collectAsStateWithLifecycle()
+    val sleepTimerMinutes by viewModel.sleepTimerMinutes.collectAsStateWithLifecycle()
+    val volume by viewModel.volume.collectAsStateWithLifecycle()
+
+    var isAudioEnhancerVisible by remember { mutableStateOf(false) }
 
     val favoriteSongs = songs.filter { it.isFavorite }
 
@@ -156,6 +169,19 @@ fun MainScreen(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { isAudioEnhancerVisible = true },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .testTag("audio_enhancer_header_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Equalizer,
+                                    contentDescription = "Mejoras de Audio",
+                                    tint = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+
                             IconButton(
                                 onClick = { viewModel.toggleSearch(true) },
                                 modifier = Modifier
@@ -369,6 +395,7 @@ fun MainScreen(
                 onNextClick = viewModel::playNextTrack,
                 onPreviousClick = viewModel::playPreviousTrack,
                 onOpenPlayer = { viewModel.setPlayerExpanded(true) },
+                visualizerBands = visualizerBands,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
 
@@ -391,7 +418,28 @@ fun MainScreen(
                 onToggleShuffle = viewModel::toggleShuffle,
                 onCycleRepeat = viewModel::cycleRepeatMode,
                 onOpenQueue = { viewModel.setQueueSheetVisible(true) },
+                visualizerBands = visualizerBands,
+                playbackSpeed = playbackSpeed,
+                onCycleSpeed = viewModel::cyclePlaybackSpeed,
+                sleepTimerMinutes = sleepTimerMinutes,
+                onOpenEnhancer = { isAudioEnhancerVisible = true },
                 modifier = Modifier.fillMaxSize()
+            )
+
+            // Audio Enhancer Bottom Sheet
+            AudioEnhancerBottomSheet(
+                isVisible = isAudioEnhancerVisible,
+                onDismiss = { isAudioEnhancerVisible = false },
+                equalizerPreset = equalizerPreset,
+                onSelectEqualizer = viewModel::setEqualizerPreset,
+                playbackSpeed = playbackSpeed,
+                onSelectSpeed = viewModel::setPlaybackSpeed,
+                sleepTimerMinutes = sleepTimerMinutes,
+                onSelectSleepTimer = viewModel::setSleepTimer,
+                volume = volume,
+                onVolumeChange = viewModel::setVolume,
+                visualizerBands = visualizerBands,
+                isPlaying = isPlaying
             )
 
             // Queue Bottom Sheet

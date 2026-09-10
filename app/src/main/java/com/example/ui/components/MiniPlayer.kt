@@ -50,6 +50,7 @@ fun MiniPlayer(
     onNextClick: () -> Unit,
     onPreviousClick: () -> Unit,
     onOpenPlayer: () -> Unit,
+    visualizerBands: List<Float> = emptyList(),
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -126,6 +127,16 @@ fun MiniPlayer(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        if (visualizerBands.isNotEmpty() && isPlaying) {
+                            EqualizerVisualizerView(
+                                bands = visualizerBands,
+                                isPlaying = isPlaying,
+                                barWidth = 3.dp,
+                                maxHeight = 18.dp,
+                                modifier = Modifier.padding(horizontal = 6.dp)
                             )
                         }
 

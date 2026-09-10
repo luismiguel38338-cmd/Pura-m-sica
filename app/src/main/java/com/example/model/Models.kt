@@ -21,6 +21,19 @@ enum class ThemeMode(val label: String) {
     LIGHT("Modo claro")
 }
 
+enum class EqualizerPreset(val label: String, val bassMultiplier: Float, val trebleMultiplier: Float) {
+    BALANCED("Equilibrado", 1.0f, 1.0f),
+    BASS_BOOST("Refuerzo de graves", 1.5f, 0.9f),
+    VOCAL("Claridad vocal", 0.8f, 1.4f),
+    ACOUSTIC("Acústico", 1.1f, 1.2f),
+    ELECTRONIC("Electrónica", 1.4f, 1.3f)
+}
+
+data class LyricLine(
+    val timeSeconds: Int,
+    val text: String
+)
+
 data class Song(
     val id: String,
     val title: String,
@@ -28,8 +41,10 @@ data class Song(
     val album: String,
     val durationSeconds: Int,
     val isFavorite: Boolean = false,
-    @DrawableRes val drawableRes: Int? = null,
-    val gradientColors: List<Long> = listOf(0xFF8B5CF6, 0xFFEC4899)
+    @param:DrawableRes val drawableRes: Int? = null,
+    val gradientColors: List<Long> = listOf(0xFF8B5CF6, 0xFFEC4899),
+    val lyrics: List<LyricLine> = emptyList(),
+    val baseFrequencyHz: Float = 220f
 ) {
     val durationFormatted: String
         get() {
@@ -43,7 +58,7 @@ data class Artist(
     val name: String,
     val songCount: Int,
     val albumCount: Int,
-    @DrawableRes val drawableRes: Int? = null,
+    @param:DrawableRes val drawableRes: Int? = null,
     val gradientColors: List<Long> = listOf(0xFF6366F1, 0xFF06B6D4)
 )
 
@@ -53,6 +68,7 @@ data class Album(
     val artist: String,
     val year: Int,
     val songCount: Int,
-    @DrawableRes val drawableRes: Int? = null,
+    @param:DrawableRes val drawableRes: Int? = null,
     val gradientColors: List<Long> = listOf(0xFFF43F5E, 0xFFF59E0B)
 )
+

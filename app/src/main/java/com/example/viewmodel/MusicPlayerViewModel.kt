@@ -2,9 +2,11 @@ package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.audio.AudioSynthesisEngine
 import com.example.data.MusicRepository
 import com.example.model.Album
 import com.example.model.Artist
+import com.example.model.EqualizerPreset
 import com.example.model.RepeatMode
 import com.example.model.SectionTab
 import com.example.model.Song
@@ -20,6 +22,9 @@ import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 class MusicPlayerViewModel : ViewModel() {
+
+    private val audioEngine = AudioSynthesisEngine(viewModelScope)
+    val visualizerBands: StateFlow<List<Float>> = audioEngine.visualizerBands
 
     private val _songs = MutableStateFlow<List<Song>>(MusicRepository.initialSongs)
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
@@ -38,6 +43,18 @@ class MusicPlayerViewModel : ViewModel() {
 
     private val _playbackPositionMs = MutableStateFlow(0L)
     val playbackPositionMs: StateFlow<Long> = _playbackPositionMs.asStateFlow()
+
+    private val _playbackSpeed = MutableStateFlow(1.0f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
+    private val _equalizerPreset = MutableStateFlow(EqualizerPreset.BALANCED)
+    val equalizerPreset: StateFlow<EqualizerPreset> = _equalizerPreset.asStateFlow()
+
+    private val _sleepTimerMinutes = MutableStateFlow<Int?>(null)
+    val sleepTimerMinutes: StateFlow<Int?> = _sleepTimerMinutes.asStateFlow()
+
+    private val _volume = MutableStateFlow(0.85f)
+    val volume: StateFlow<Float> = _volume.asStateFlow()
 
     private val _isShuffleEnabled = MutableStateFlow(false)
     val isShuffleEnabled: StateFlow<Boolean> = _isShuffleEnabled.asStateFlow()
@@ -76,6 +93,7 @@ class MusicPlayerViewModel : ViewModel() {
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
     private var playbackJob: Job? = null
+    private var sleepTimerJob: Job? = null
 
     init {
         startPlaybackProgressTicker()
@@ -89,12 +107,14 @@ class MusicPlayerViewModel : ViewModel() {
                 if (_isPlaying.value) {
                     val song = _currentSong.value ?: continue
                     val maxDurationMs = song.durationSeconds * 1000L
-                    val nextPos = _playbackPositionMs.value + 200L
+                    val stepMs = (200L * _playbackSpeed.value).toLong()
+                    val nextPos = _playbackPositionMs.value + stepMs
 
                     if (nextPos >= maxDurationMs) {
                         when (_repeatMode.value) {
                             RepeatMode.ONE -> {
                                 _playbackPositionMs.value = 0L
+                                audioEngine.playSong(song)
                             }
                             RepeatMode.ALL -> {
                                 playNextTrack(autoTriggered = true)
@@ -106,6 +126,7 @@ class MusicPlayerViewModel : ViewModel() {
                                 } else {
                                     _isPlaying.value = false
                                     _playbackPositionMs.value = maxDurationMs
+                                    audioEngine.pause()
                                 }
                             }
                         }
@@ -124,6 +145,7 @@ class MusicPlayerViewModel : ViewModel() {
         _currentSong.value = song
         _playbackPositionMs.value = 0L
         _isPlaying.value = true
+        audioEngine.playSong(song)
         if (expandPlayer) {
             _isPlayerExpanded.value = true
         }
@@ -131,11 +153,19 @@ class MusicPlayerViewModel : ViewModel() {
 
     fun togglePlayPause() {
         if (_currentSong.value == null && _songs.value.isNotEmpty()) {
-            _currentSong.value = _songs.value.first()
+            val first = _songs.value.first()
+            _currentSong.value = first
             _playbackPositionMs.value = 0L
             _isPlaying.value = true
+            audioEngine.playSong(first)
         } else {
-            _isPlaying.update { !it }
+            val newPlaying = !_isPlaying.value
+            _isPlaying.value = newPlaying
+            if (newPlaying) {
+                _currentSong.value?.let { audioEngine.resume() }
+            } else {
+                audioEngine.pause()
+            }
         }
     }
 
@@ -147,17 +177,16 @@ class MusicPlayerViewModel : ViewModel() {
         if (_isShuffleEnabled.value) {
             val available = currentQueue.filter { it.id != current.id }
             val next = if (available.isNotEmpty()) available[Random.nextInt(available.size)] else current
-            playSong(next)
+            playSong(next, expandPlayer = !autoTriggered)
             return
         }
 
         val currentIndex = currentQueue.indexOfFirst { it.id == current.id }
         val nextIndex = if (currentIndex != -1) (currentIndex + 1) % currentQueue.size else 0
-        playSong(currentQueue[nextIndex])
+        playSong(currentQueue[nextIndex], expandPlayer = !autoTriggered)
     }
 
     fun playPreviousTrack() {
-        // If more than 3 seconds in, seek to beginning; otherwise go to previous song
         if (_playbackPositionMs.value > 3000L) {
             _playbackPositionMs.value = 0L
             return
@@ -169,13 +198,53 @@ class MusicPlayerViewModel : ViewModel() {
 
         val currentIndex = currentQueue.indexOfFirst { it.id == current.id }
         val prevIndex = if (currentIndex > 0) currentIndex - 1 else currentQueue.size - 1
-        playSong(currentQueue[prevIndex])
+        playSong(currentQueue[prevIndex], expandPlayer = false)
     }
 
     fun seekTo(positionMs: Long) {
         val song = _currentSong.value ?: return
         val clamped = positionMs.coerceIn(0L, song.durationSeconds * 1000L)
         _playbackPositionMs.value = clamped
+    }
+
+    fun setPlaybackSpeed(speed: Float) {
+        _playbackSpeed.value = speed
+    }
+
+    fun cyclePlaybackSpeed() {
+        val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        val current = _playbackSpeed.value
+        val currentIndex = speeds.indexOfFirst { kotlin.math.abs(it - current) < 0.05f }
+        val nextIndex = if (currentIndex != -1) (currentIndex + 1) % speeds.size else 1
+        _playbackSpeed.value = speeds[nextIndex]
+    }
+
+    fun setEqualizerPreset(preset: EqualizerPreset) {
+        _equalizerPreset.value = preset
+        audioEngine.setEqualizer(preset)
+    }
+
+    fun setVolume(vol: Float) {
+        _volume.value = vol.coerceIn(0f, 1f)
+        audioEngine.setVolume(_volume.value)
+    }
+
+    fun setSleepTimer(minutes: Int?) {
+        _sleepTimerMinutes.value = minutes
+        sleepTimerJob?.cancel()
+        if (minutes != null && minutes > 0) {
+            sleepTimerJob = viewModelScope.launch {
+                var remaining = minutes
+                while (isActive && remaining > 0) {
+                    delay(60_000L)
+                    remaining--
+                    _sleepTimerMinutes.value = remaining
+                }
+                _isPlaying.value = false
+                audioEngine.pause()
+                _sleepTimerMinutes.value = null
+            }
+        }
     }
 
     fun toggleFavorite(songId: String) {
@@ -252,5 +321,8 @@ class MusicPlayerViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         playbackJob?.cancel()
+        sleepTimerJob?.cancel()
+        audioEngine.release()
     }
 }
+
