@@ -1,0 +1,6 @@
+{
+  "name": "Música",
+  "description": "Reproductor de música moderno, elegante y minimalista con mini reproductor interactivo, pantalla de reproducción completa, gestión de favoritos y soporte para modo claro y oscuro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
