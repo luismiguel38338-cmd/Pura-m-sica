@@ -190,6 +190,26 @@ fun SettingsDialog(
                         )
                     }
                 }
+
+                HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
+
+                // App info
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Pura Música",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Versión 2.0 • Reproductor local sin anuncios",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         confirmButton = {

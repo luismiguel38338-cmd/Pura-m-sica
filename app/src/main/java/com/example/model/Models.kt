@@ -1,10 +1,14 @@
 package com.example.model
 
 enum class SectionTab(val label: String) {
-    ALL_SONGS("Todas las canciones"),
+    ALL_SONGS("Canciones"),
     ARTISTS("Artistas"),
     ALBUMS("Álbumes"),
-    FAVORITES("Favoritos")
+    FOLDERS("Carpetas"),
+    GENRES("Géneros"),
+    PLAYLISTS("Playlists"),
+    FAVORITES("Favoritos"),
+    HISTORY("Historial")
 }
 
 enum class RepeatMode {
@@ -24,7 +28,11 @@ enum class EqualizerPreset(val label: String, val bassMultiplier: Float, val tre
     BASS_BOOST("Refuerzo de graves", 1.5f, 0.9f),
     VOCAL("Claridad vocal", 0.8f, 1.4f),
     ACOUSTIC("Acústico", 1.1f, 1.2f),
-    ELECTRONIC("Electrónica", 1.4f, 1.3f)
+    ROCK("Rock", 1.3f, 1.3f),
+    POP("Pop", 1.1f, 1.2f),
+    JAZZ("Jazz", 1.1f, 1.1f),
+    ELECTRONIC("Electrónica", 1.4f, 1.3f),
+    CLASSICAL("Clásica", 1.1f, 1.2f)
 }
 
 data class LyricLine(
@@ -42,6 +50,9 @@ data class Song(
     val albumArtUri: String? = null,
     val albumId: Long = 0L,
     val filePath: String? = null,
+    val folderPath: String = "",
+    val folderName: String = "Música",
+    val genre: String = "Varios",
     val sizeBytes: Long = 0L,
     val isFavorite: Boolean = false,
     val gradientColors: List<Long> = listOf(0xFF8B5CF6, 0xFFEC4899),
@@ -71,5 +82,32 @@ data class Album(
     val songCount: Int,
     val albumArtUri: String? = null,
     val gradientColors: List<Long> = listOf(0xFFF43F5E, 0xFFF59E0B)
+)
+
+data class MusicFolder(
+    val path: String,
+    val name: String,
+    val songCount: Int,
+    val songs: List<Song>
+)
+
+data class MusicGenre(
+    val name: String,
+    val songCount: Int,
+    val songs: List<Song>
+)
+
+data class Playlist(
+    val id: Long,
+    val name: String,
+    val songCount: Int,
+    val songs: List<Song> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+data class PlayHistoryItem(
+    val song: Song,
+    val playCount: Int,
+    val lastPlayedAt: Long
 )
 

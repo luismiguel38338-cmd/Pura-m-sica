@@ -6,9 +6,12 @@ import android.net.Uri
 import android.provider.MediaStore
 import com.example.model.Album
 import com.example.model.Artist
+import com.example.model.MusicFolder
+import com.example.model.MusicGenre
 import com.example.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.math.abs
 
 object MediaAudioScanner {
@@ -73,6 +76,17 @@ object MediaAudioScanner {
                     val artist = if (!rawArtist.isNullOrBlank() && rawArtist != "<unknown>") rawArtist else "Artista desconocido"
                     val album = if (!rawAlbum.isNullOrBlank() && rawAlbum != "<unknown>") rawAlbum else "Álbum desconocido"
 
+                    val folderPath = if (!filePath.isNullOrBlank()) {
+                        try {
+                            File(filePath).parent ?: "/Música"
+                        } catch (e: Exception) {
+                            "/Música"
+                        }
+                    } else {
+                        "/Música"
+                    }
+                    val folderName = folderPath.substringAfterLast('/').ifBlank { "Música" }
+
                     val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id).toString()
                     val albumArtUri = ContentUris.withAppendedId(
                         Uri.parse("content://media/external/audio/albumart"),
@@ -92,6 +106,9 @@ object MediaAudioScanner {
                             albumArtUri = albumArtUri,
                             albumId = albumId,
                             filePath = filePath,
+                            folderPath = folderPath,
+                            folderName = folderName,
+                            genre = "Música",
                             sizeBytes = size,
                             gradientColors = getGradientForString(title)
                         )
@@ -134,5 +151,27 @@ object MediaAudioScanner {
                 gradientColors = getGradientForString(albumTitle)
             )
         }.sortedBy { it.title }
+    }
+
+    fun groupFolders(songs: List<Song>): List<MusicFolder> {
+        return songs.groupBy { it.folderPath }.map { (folderPath, folderSongs) ->
+            val folderName = folderSongs.firstOrNull()?.folderName ?: folderPath.substringAfterLast('/')
+            MusicFolder(
+                path = folderPath,
+                name = folderName,
+                songCount = folderSongs.size,
+                songs = folderSongs
+            )
+        }.sortedBy { it.name.lowercase() }
+    }
+
+    fun groupGenres(songs: List<Song>): List<MusicGenre> {
+        return songs.groupBy { it.genre }.map { (genreName, genreSongs) ->
+            MusicGenre(
+                name = genreName,
+                songCount = genreSongs.size,
+                songs = genreSongs
+            )
+        }.sortedBy { it.name.lowercase() }
     }
 }

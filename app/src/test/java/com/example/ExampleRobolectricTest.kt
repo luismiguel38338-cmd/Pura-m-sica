@@ -22,7 +22,7 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("Música", appName)
+    assertEquals("Pura Música", appName)
   }
 
   @Test
@@ -43,6 +43,12 @@ class ExampleRobolectricTest {
 
     viewModel.setVolume(0.5f)
     assertEquals(0.5f, viewModel.volume.value, 0.01f)
+
+    viewModel.setBassBoostStrength(75)
+    assertEquals(75, viewModel.bassBoostStrength.value)
+
+    viewModel.setVirtualizerStrength(50)
+    assertEquals(50, viewModel.virtualizerStrength.value)
   }
 }
 

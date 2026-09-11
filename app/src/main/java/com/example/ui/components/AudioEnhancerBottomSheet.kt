@@ -53,6 +53,10 @@ fun AudioEnhancerBottomSheet(
     onVolumeChange: (Float) -> Unit,
     visualizerBands: List<Float>,
     isPlaying: Boolean,
+    bassBoostStrength: Int = 0,
+    onBassBoostChange: (Int) -> Unit = {},
+    virtualizerStrength: Int = 0,
+    onVirtualizerChange: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (!isVisible) return
@@ -167,6 +171,70 @@ fun AudioEnhancerBottomSheet(
                             )
                         )
                     }
+                }
+            }
+
+            // Bass Boost & 3D Virtualizer
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Bass Boost
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Graves / Bass",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$bassBoostStrength%",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Slider(
+                        value = bassBoostStrength.toFloat(),
+                        onValueChange = { onBassBoostChange(it.toInt()) },
+                        valueRange = 0f..100f
+                    )
+                }
+
+                // 3D Virtualizer
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Envolvente 3D",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$virtualizerStrength%",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+                    Slider(
+                        value = virtualizerStrength.toFloat(),
+                        onValueChange = { onVirtualizerChange(it.toInt()) },
+                        valueRange = 0f..100f
+                    )
                 }
             }
 
